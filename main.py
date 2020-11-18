@@ -22,15 +22,14 @@ def ask_creator() -> str:
 phrasebook = {
     'greeting': [f"Hi, {USER}!", f"Hello, {USER}!",
                  f"What's up, {USER}?", f"How's it hangin', {USER}?"],
-    # 'greeting': ["Hi, iisan!", "Hello, iisan!",
-    #              "What's up, iisan?", "How's it hangin', iisan?"],
     'confirmation': ["Are you sure?", "Are you certain?"],
     'date': [lambda: date_string()],
     'time': [lambda: time_string()],
     'filler': ['I see.', 'Um...', 'Hmm.', 'Well...'],
     'unknown': ["I don't know.", "You've got me stumped.", 'Curiously, I do not have an answer for that.',
                 'Dropped my brain. Honestly I have no clue.', lambda: ask_creator(),
-                "You're not making any sense at all, mate.", 'Sorry, what are we talking about again?'],
+                "You're not making any sense at all, mate.", 'Sorry, what are we talking about again?',
+                'I do not know very much yet honestly. My creator is constantly updating me though.'],
 }
 
 
