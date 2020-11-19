@@ -30,6 +30,7 @@ phrasebook = {
                 'Dropped my brain. Honestly I have no clue.', lambda: ask_creator(),
                 "You're not making any sense at all, mate.", 'Sorry, what are we talking about again?',
                 'I do not know very much yet honestly. My creator is constantly updating me though.'],
+    'what': ["I am a personal assistant and AI chat program, created by Ethan to do your bidding. I am a work in progress. :D"]
 }
 
 
