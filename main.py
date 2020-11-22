@@ -5,6 +5,12 @@ import random
 
 
 USER = os.getenv('USER')
+col = {
+    'bg': '#303030',
+    'mg': '#600060',
+    'fg': '#ffffff',
+    'acc': '#C000D0'
+}
 
 
 def date_string() -> str:
@@ -19,28 +25,34 @@ def ask_creator() -> str:
     return 'Perhaps we should ask my creator.'
 
 
-phrasebook = {
-    'greeting': [f"Hi, {USER}!", f"Hello, {USER}!",
-                 f"What's up, {USER}?", f"How's it hangin', {USER}?"],
-    'confirmation': ["Are you sure?", "Are you certain?"],
-    'date': [lambda: date_string()],
-    'time': [lambda: time_string()],
-    'filler': ['I see.', 'Um...', 'Hmm.', 'Well...'],
-    'unknown': ["I don't know.", "You've got me stumped.", 'Curiously, I do not have an answer for that.',
-                'Dropped my brain. Honestly I have no clue.', lambda: ask_creator(),
-                "You're not making any sense at all, mate.", 'Sorry, what are we talking about again?',
-                'I do not know very much yet honestly. My creator is constantly updating me though.'],
-    'what': ["I am a personal assistant and AI chat program, created by Ethan to do your bidding. I am a work in progress. :D"]
-}
+def ask_to_ask_gpt():
+    return 'Perhaps we should ask my colleague, GPT. Would you like to send this query to GPT?'
 
 
 class Conversator:
-    def __init__(self):
-        print(self.grab_phrase(phrasebook, 'greeting'))
+    phrasebook = {
+            'greeting': [f"Hi, {USER}!", f"Hello, {USER}!",
+                         f"What's up, {USER}?", f"How's it hangin', {USER}?"],
+            'confirmation': ["Are you sure?", "Are you certain?"],
+            'date': [lambda: date_string()],
+            'time': [lambda: time_string()],
+            'filler': ['I see.', 'Um...', 'Hmm.', 'Well...'],
+            'unknown': ["I don't know.", "You've got me stumped.", 'Curiously, I do not have an answer for that.',
+                        'Dropped my brain. Honestly I have no clue.', lambda: ask_creator(),
+                        lambda: ask_to_ask_gpt(),
+                        "You're not making any sense at all, mate.", 'Sorry, what are we talking about again?',
+                        'I do not know very much yet honestly. My creator is constantly updating me though.'],
+            'what': ["I am a personal assistant and AI chat program, created by Ethan to do your bidding. I am a work in progress. :D"]
+        }
 
-    def grab_phrase(self, item=None, key=None, args=None) -> str:
+    def __init__(self):
+        self.process_stack = ['basic']
+        self.response_queue = [self.grab_phrase(key='greeting')]
+        print(self.grab_phrase(Conversator.phrasebook, 'greeting') + ' This is the debug window.')
+
+    def grab_phrase(self, item=None, key=None, args=None):
         if item is None:
-            item = phrasebook
+            item = Conversator.phrasebook
         if key is not None:
             first_key = key_list = key
             if isinstance(key_list, list):
@@ -60,26 +72,35 @@ class Conversator:
             return item()
         return item
 
-    def basic_ass_bitch_reply(self, input_string: str) -> str:
-        if input_string in phrasebook.keys():
-            return self.grab_phrase(phrasebook, input_string)
+    def parse_decisions(self, input_string):
+        pass
+
+    def enqueue_response(self, input_string: str):
+        current_subroutine = self.process_stack[-1]
+        if current_subroutine == 'basic':
+            self.response_queue.append(self.basic_ass_bitch_reply(input_string))
+        elif current_subroutine == 'confirmation':
+            self.confirm_or_deny()
         else:
-            return self.grab_phrase(phrasebook, 'unknown')
+            pass
 
+    def basic_ass_bitch_reply(self, input_string: str) -> str:
+        if input_string in Conversator.phrasebook.keys():
+            return self.grab_phrase(Conversator.phrasebook, input_string)
+        else:
+            return self.grab_phrase(Conversator.phrasebook, 'unknown')
 
-c = Conversator()
-
-
-col = {
-    'bg': '#303030',
-    'mg': '#600060',
-    'fg': '#ffffff',
-    'acc': '#C000D0'
-}
+    def confirm_or_deny(self):
+        pass
 
 
 class GuiWindow:
-    def __init__(self):
+    def __init__(self, conversator: Conversator = None):
+        if conversator is None:
+            self.c = Conversator()
+        else:
+            self.c = conversator
+
         self.robot_spoke_last = True
 
         self.root = tk.Tk()
@@ -119,7 +140,8 @@ class GuiWindow:
                                               bg=col['mg'], fg=col['fg'], activebackground=col['acc'])
         self.preconfigured_button.place(anchor='ne', relx=1.0, rely=0.9, relwidth=0.25, relheight=0.1)
 
-        self.output('\n' + c.grab_phrase(phrasebook, 'greeting'))
+        # initial greeting:
+        self.dequeue_responses()
 
         self.root.mainloop()
 
@@ -140,7 +162,13 @@ class GuiWindow:
         self.chat_area.insert('end', header_bit+string+'\n')
 
     def invoke_response(self, user_input: str):
-        self.output(c.basic_ass_bitch_reply(user_input))
+        self.c.parse_decisions(user_input)
+        self.c.enqueue_response(user_input)
+        self.dequeue_responses()
+
+    def dequeue_responses(self):
+        for i in range(len(self.c.response_queue)):
+            self.output(self.c.response_queue.pop(0))
 
 
 if __name__ == '__main__':
