@@ -26,26 +26,6 @@ def ask_creator() -> str:
 
 
 class Conversator:
-    # phrasebook = {
-    #         'greeting': [f"Hi, {USER}!", f"Hello, {USER}!",
-    #                      f"What's up, {USER}?", f"How's it hangin', {USER}?"],
-    #         'confirmation': ["Are you sure?", "Are you certain?"],
-    #         'date': [lambda: date_string()],
-    #         'time': [lambda: time_string()],
-    #         'filler': ['I see.', 'Um...', 'Hmm.', 'Well...'],
-    #         'unknown': ["I don't know.", "You've got me stumped.", 'Curiously, I do not have an answer for that.',
-    #                     'Dropped my brain. Honestly I have no clue.', lambda: ask_creator(),
-    #                     lambda: ask_to_ask_gpt(),
-    #                     "You're not making any sense at all, mate.", 'Sorry, what are we talking about again?',
-    #                     'I do not know very much yet honestly. My creator is constantly updating me though.'],
-    #         'what': ["I am a personal assistant and AI chat program, created by Ethan to do your bidding. "
-    #                  "I am a work in progress. :D"],
-    #         'affirmative phrases': ['Yes', 'Yeah', 'Ok', 'Alright', 'Y', 'Definitely', "Let's do it!", 'Alright then!',
-    #                                 'Awesome', 'Awesome!', 'Cool!', 'Awesome.'],
-    #         'assumption of no': ["I'll take that as a no.", 'No? ok cool.', 'Got it.',
-    #                              "Yeah, why would we need to? Nevermind that I asked."]
-    #     }
-
     def __init__(self):
         self.phrasebook = {
             'greeting': [f"Hi, {USER}!", f"Hello, {USER}!",
@@ -62,7 +42,7 @@ class Conversator:
             'what': ["I am a personal assistant and AI chat program, created by Ethan to do your bidding. "
                      "I am a work in progress. :D"],
             'affirmative phrases': ['Yes', 'Yeah', 'Ok', 'Alright', 'Y', 'Definitely', "Let's do it!", 'Alright then!',
-                                    'Awesome', 'Awesome!', 'Cool!', 'Awesome.'],
+                                    'Awesome', 'Awesome!', 'Cool!', 'Awesome.', 'Sure'],
             'assumption of no': ["I'll take that as a no.", 'No? ok cool.', 'Got it.',
                                  "Yeah, why would we need to? Nevermind that I asked."],
             'gpt': lambda: self.subroutine_start('talk to gpt', confirm=True),
@@ -73,13 +53,17 @@ class Conversator:
         self.response_queue = [self.grab_phrase(key='greeting')]
 
         self.subroutines = {
-            'basic': self.enqueue_basic_response,
+            'basic': self.basic_ass_bitch_reply,
             'confirmation': self.confirm_or_deny,
             'talk to gpt': self.talk_to_gpt,
         }
 
-        self.continue_talking: bool = False  # does nothing yet, will allow for multiple chat bubbles in the future
         print(self.grab_phrase(self.phrasebook, 'greeting') + ' This is the debug window.')
+
+        self.gui = GuiWindow()
+        self.gui.conversator = self
+        self.gui.dequeue_responses()
+        self.gui.root.mainloop()
 
     def grab_phrase(self, item=None, key=None, args=None):
         if item is None:
@@ -109,53 +93,52 @@ class Conversator:
         current_subroutine = self.process_stack[-1]
         self.subroutines[current_subroutine](input_string)
 
-    def enqueue_basic_response(self, input_string: str):
-        self.response_queue.append(self.basic_ass_bitch_reply(input_string))
+    def invoke_response(self, user_input: str):
+        self.think(user_input)  # read and evaluate
+        self.gui.dequeue_responses()  # print
 
-    def basic_ass_bitch_reply(self, input_string: str) -> str:
+    def enqueue_response(self, response: str):
+        self.response_queue.append(response)
+
+    def basic_ass_bitch_reply(self, input_string: str):
         if input_string in self.phrasebook.keys():
-            return self.grab_phrase(self.phrasebook, input_string)
+            self.enqueue_response(self.grab_phrase(self.phrasebook, input_string))
         else:
-            return self.grab_phrase(self.phrasebook, 'unknown')
+            self.enqueue_response(self.grab_phrase(self.phrasebook, 'unknown'))
 
     def confirm_or_deny(self, user_input: str):
         if user_input.lower() in map(str.lower, self.phrasebook['affirmative phrases']):
             self.process_stack.pop()
-            self.enqueue_basic_response('affirmative phrases')
+            self.basic_ass_bitch_reply('affirmative phrases')
         else:
             self.process_stack.pop()
             self.process_stack.pop()
-            self.enqueue_basic_response('assumption of no')
+            self.basic_ass_bitch_reply('assumption of no')
 
     def subroutine_start(self, routine_name: str, confirm: bool = False, confirmation_prompt=None):
         self.process_stack.append(routine_name)
         if confirm:
-            return self.ask_to_confirm(confirmation_prompt)
+            self.process_stack.append('confirmation')
+            if confirmation_prompt is None:
+                self.enqueue_response('confirmation')
+            else:
+                self.enqueue_response(confirmation_prompt)
         else:
-            return self.grab_phrase(key='affirmative phrases')
+            self.basic_ass_bitch_reply('affirmative phrases')
 
-    def ask_to_confirm(self, confirmation_prompt=None) -> str:
-        self.process_stack.append('confirmation')
-        if confirmation_prompt is None:
-            return self.basic_ass_bitch_reply('confirmation')
-        else:
-            return self.basic_ass_bitch_reply(confirmation_prompt)
-
-    def ask_to_ask_gpt(self) -> str:
-        return self.subroutine_start('talk to gpt', confirm=True,
-                                     confirmation_prompt='Perhaps we should ask my colleague, GPT. '
-                                                         'Would you like to send this query to GPT?')
+    def ask_to_ask_gpt(self):
+        self.subroutine_start('talk to gpt', confirm=True,
+                              confirmation_prompt='Perhaps we should ask my colleague, GPT. '
+                                                  'Would you like to send this query to GPT?')
 
     def talk_to_gpt(self, user_input: str):
         pass
 
 
 class GuiWindow:
-    def __init__(self, conversator: Conversator = None):
-        if conversator is None:
-            self.c = Conversator()
-        else:
-            self.c = conversator
+    def __init__(self):
+        # GUIWindow is meant to be a component of a Conversator, with a reference back to it.
+        self.conversator = None
 
         self.robot_spoke_last = True
 
@@ -196,13 +179,9 @@ class GuiWindow:
                                               bg=col['mg'], fg=col['fg'], activebackground=col['acc'])
         self.preconfigured_button.place(anchor='ne', relx=1.0, rely=0.9, relwidth=0.25, relheight=0.1)
 
-        # initial greeting:
-        self.dequeue_responses()
-
-        self.root.mainloop()
-
     def user_send(self):
         message = self.message_area.get('1.0', 'end-1c')  # exclude the last character, which is a line feed
+        print(message)
         self.message_area.delete('1.0', 'end')
         self.output(message, from_robot=False)
         self.invoke_response(message)
@@ -221,15 +200,13 @@ class GuiWindow:
         self.chat_area.insert('end', header_bit+string+'\n')
 
     def invoke_response(self, user_input: str):
-        self.c.think(user_input)  # read and evaluate
-        self.dequeue_responses()  # print
-        while self.c.continue_talking:
-            self.invoke_response('')
+        self.conversator.invoke_response(user_input)
 
     def dequeue_responses(self):
-        for i in range(len(self.c.response_queue)):
-            self.output(self.c.response_queue.pop(0))
+        for i in range(len(self.conversator.response_queue)):
+            self.output(str(self.conversator.response_queue.pop(0)))
 
 
 if __name__ == '__main__':
-    main_window = GuiWindow()
+    # main_window = GuiWindow()
+    main_process = Conversator()
