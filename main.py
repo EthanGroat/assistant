@@ -36,7 +36,9 @@ class Conversator:
             'filler': ['I see.', 'Um...', 'Hmm.', 'Well...'],
             'unknown': ["I don't know.", "You've got me stumped.", 'Curiously, I do not have an answer for that.',
                         'Dropped my brain. Honestly I have no clue.', lambda: ask_creator(),
-                        lambda: self.ask_to_ask_gpt(),
+                        lambda: self.subroutine_start('talk to gpt', confirm=True,
+                                                      confirmation_prompt='Perhaps we should ask my colleague, GPT. '
+                                                                          'Would you like to send this query to GPT?'),
                         "You're not making any sense at all, mate.", 'Sorry, what are we talking about again?',
                         'I do not know very much yet honestly. My creator is constantly updating me though.'],
             'what': ["I am a personal assistant and AI chat program, created by Ethan to do your bidding. "
@@ -60,9 +62,10 @@ class Conversator:
 
         print(self.grab_phrase(self.phrasebook, 'greeting') + ' This is the debug window.')
 
+        # set up GUI
         self.gui = GuiWindow()
         self.gui.conversator = self
-        self.gui.dequeue_responses()
+        self.gui.unload_responses()
         self.gui.root.mainloop()
 
     def grab_phrase(self, item=None, key=None, args=None):
@@ -95,10 +98,13 @@ class Conversator:
 
     def invoke_response(self, user_input: str):
         self.think(user_input)  # read and evaluate
-        self.gui.dequeue_responses()  # print
+        self.gui.unload_responses()  # print
 
     def enqueue_response(self, response: str):
         self.response_queue.append(response)
+
+    def dequeue_response(self):
+        return self.response_queue.pop(0)
 
     def basic_ass_bitch_reply(self, input_string: str):
         if input_string in self.phrasebook.keys():
@@ -119,17 +125,9 @@ class Conversator:
         self.process_stack.append(routine_name)
         if confirm:
             self.process_stack.append('confirmation')
-            if confirmation_prompt is None:
-                self.enqueue_response('confirmation')
-            else:
-                self.enqueue_response(confirmation_prompt)
+            self.enqueue_response(confirmation_prompt)
         else:
             self.basic_ass_bitch_reply('affirmative phrases')
-
-    def ask_to_ask_gpt(self):
-        self.subroutine_start('talk to gpt', confirm=True,
-                              confirmation_prompt='Perhaps we should ask my colleague, GPT. '
-                                                  'Would you like to send this query to GPT?')
 
     def talk_to_gpt(self, user_input: str):
         pass
@@ -184,7 +182,7 @@ class GuiWindow:
         print(message)
         self.message_area.delete('1.0', 'end')
         self.output(message, from_robot=False)
-        self.invoke_response(message)
+        self.conversator.invoke_response(message)
 
     def output(self, string: str, from_robot: bool = True):
         header_bit = ''
@@ -199,12 +197,12 @@ class GuiWindow:
                 header_bit = '\n'+USER+':\n'
         self.chat_area.insert('end', header_bit+string+'\n')
 
-    def invoke_response(self, user_input: str):
-        self.conversator.invoke_response(user_input)
-
-    def dequeue_responses(self):
-        for i in range(len(self.conversator.response_queue)):
-            self.output(str(self.conversator.response_queue.pop(0)))
+    def unload_responses(self):
+        print(self.conversator.response_queue)
+        while len(self.conversator.response_queue) > 0:
+            sentence = self.conversator.dequeue_response()
+            if sentence is not None:  # some Nones can be enqueued from subroutine confirmation prompts
+                self.output(sentence, from_robot=True)
 
 
 if __name__ == '__main__':
