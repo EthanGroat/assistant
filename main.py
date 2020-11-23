@@ -2,9 +2,26 @@ import os
 import tkinter as tk
 import time
 import random
+from chattingtransformer import ChattingGPT2
 
 
 USER = os.getenv('USER')
+CHAT_MODEL = 'gpt2-medium'
+SAMPLING_METHOD = 'top-p-nucleus-sampling'  # 'greedy'  # 'beam-search'  # 'top-k-sampling'
+MIN_LENGTH = 1
+MAX_LENGTH = 80
+CUSTOM_CHAT_SETTINGS = {
+  "do_sample": True,
+  "early_stopping": True,
+  "num_beams": 4,
+  "temperature": 1,
+  "top_k": 40,
+  "top_p": 0.4,
+  "repetition_penalty": 1,
+  "length_penalty": 1,
+  "no_repeat_ngram_size": 2,
+  'bad_words_ids': None
+}
 col = {
     'bg': '#303030',
     'mg': '#600060',
@@ -62,6 +79,9 @@ class Conversator:
 
         print(self.grab_phrase(self.phrasebook, 'greeting') + ' This is the debug window.')
 
+        # set up GPT2
+        self.gpt2 = ChattingGPT2(CHAT_MODEL)
+
         # set up GUI
         self.gui = GuiWindow()
         self.gui.conversator = self
@@ -90,29 +110,31 @@ class Conversator:
             return item()
         return item
 
-    def think(self, input_string: str):
+    def think(self, input_string: str) -> None:
         print(self.process_stack)
         print(self.response_queue)
         current_subroutine = self.process_stack[-1]
         self.subroutines[current_subroutine](input_string)
 
-    def invoke_response(self, user_input: str):
+    def invoke_response(self, user_input: str) -> None:
         self.think(user_input)  # read and evaluate
         self.gui.unload_responses()  # print
 
-    def enqueue_response(self, response: str):
+    def enqueue_response(self, response: str) -> None:
         self.response_queue.append(response)
 
-    def dequeue_response(self):
+    def dequeue_response(self) -> str:
         return self.response_queue.pop(0)
 
-    def basic_ass_bitch_reply(self, input_string: str):
-        if input_string in self.phrasebook.keys():
-            self.enqueue_response(self.grab_phrase(self.phrasebook, input_string))
+    def basic_ass_bitch_reply(self, input_string: str) -> None:
+        if input_string.lower() in self.phrasebook.keys():
+            sentence = self.grab_phrase(key=input_string.lower())
+            if sentence is not None:
+                self.enqueue_response(str(sentence))
         else:
-            self.enqueue_response(self.grab_phrase(self.phrasebook, 'unknown'))
+            self.enqueue_response(self.grab_phrase(key='unknown'))
 
-    def confirm_or_deny(self, user_input: str):
+    def confirm_or_deny(self, user_input: str) -> None:
         if user_input.lower() in map(str.lower, self.phrasebook['affirmative phrases']):
             self.process_stack.pop()
             self.basic_ass_bitch_reply('affirmative phrases')
@@ -121,16 +143,33 @@ class Conversator:
             self.process_stack.pop()
             self.basic_ass_bitch_reply('assumption of no')
 
-    def subroutine_start(self, routine_name: str, confirm: bool = False, confirmation_prompt=None):
+    def subroutine_start(self, routine_name: str, confirm: bool = False, confirmation_prompt=None) -> None:
         self.process_stack.append(routine_name)
         if confirm:
             self.process_stack.append('confirmation')
-            self.enqueue_response(confirmation_prompt)
+            if confirmation_prompt is not None:
+                self.enqueue_response(confirmation_prompt)
+            else:
+                self.enqueue_response(self.grab_phrase(key='confirmation'))
         else:
             self.basic_ass_bitch_reply('affirmative phrases')
 
-    def talk_to_gpt(self, user_input: str):
-        pass
+    def talk_to_gpt(self, user_input: str) -> None:
+        if user_input != 'exit':
+            response = self.gpt2.generate_text(user_input,
+                                               min_length=MIN_LENGTH,
+                                               max_length=MAX_LENGTH,
+                                               custom_settings=CUSTOM_CHAT_SETTINGS)
+            # randomly remove prompt (it's sometimes really funny or natural to have the bot repeat & continue)
+            if bool(random.getrandbits(1)):
+                slice_start = len(user_input) + 1
+                slice_end = len(response)
+                if slice_start > slice_end:  # check edge case
+                    slice_start = slice_end
+                response = response[slice_start:slice_end]
+            self.enqueue_response(response)
+        else:
+            self.process_stack.pop()
 
 
 class GuiWindow:
@@ -144,7 +183,7 @@ class GuiWindow:
         self.root.title('Assistant')
         self.icon = tk.PhotoImage(file='res/robot-small.png')
         self.root.iconphoto(True, self.icon)
-        self.root.geometry('400x520')
+        self.root.geometry('380x472')
         self.root.minsize(320, 320)
 
         self.main_menu = tk.Menu(self.root)
@@ -201,7 +240,7 @@ class GuiWindow:
         print(self.conversator.response_queue)
         while len(self.conversator.response_queue) > 0:
             sentence = self.conversator.dequeue_response()
-            if sentence is not None:  # some Nones can be enqueued from subroutine confirmation prompts
+            if sentence is not None:  # here in case of errors
                 self.output(sentence, from_robot=True)
 
 
