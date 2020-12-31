@@ -8,7 +8,7 @@ from chattingtransformer import ChattingGPT2
 USER = os.getenv('USER')
 CHAT_MODEL = 'gpt2-medium'
 SAMPLING_METHOD = 'top-p-nucleus-sampling'  # 'greedy'  # 'beam-search'  # 'top-k-sampling'
-LENGTH_VARIANCE = 12
+LENGTH_VARIANCE = 10
 PROMPT_REPEAT_CHANCE = 0.10
 GPT_RESCUE_CHANCE = 0.8
 CUSTOM_CHAT_SETTINGS = {
@@ -29,6 +29,8 @@ col = {
     'fg': '#ffffff',
     'acc': '#C000D0'
 }
+ROBOT_TEXT_COLOR = 'PaleGreen1'
+USER_TEXT_COLOR = 'cyan'  # 'Magenta1'
 
 
 def date_string() -> str:
@@ -58,7 +60,8 @@ class Conversator:
                                                       confirmation_prompt='Perhaps we should ask my colleague, GPT. '
                                                                           'Would you like to send this query to GPT?'),
                         "You're not making any sense at all, mate.", 'Sorry, what are we talking about again?',
-                        'I do not know very much yet honestly. My creator is constantly updating me though.'],
+                        'I do not know very much yet honestly. My creator is constantly updating me though.',
+                        "I'm a newbie here, but I'd like to help"],
             'what': ["I am a personal assistant and AI chat program, created by Ethan to do your bidding. "
                      "I am a work in progress. :D"],
             'affirmative phrases': ['Yes', 'Yeah', 'Ok', 'Alright', 'Y', 'Definitely', "Let's do it!", 'Alright then!',
@@ -170,6 +173,8 @@ class Conversator:
             if slice_start > slice_end:  # check edge case
                 slice_start = slice_end
             response = response[slice_start:slice_end]
+        while len(response) > 0 and response[0] == '\n':  # chomp leading newlines
+            response = response[1:]
         return response
 
     def talk_to_gpt(self, user_input: str) -> None:
@@ -195,7 +200,7 @@ class GuiWindow:
 
         self.main_menu = tk.Menu(self.root)
         self.file_menu = tk.Menu(self.root)
-        self.file_menu.add_command(label='New...')
+        # self.file_menu.add_command(label='New...')
         self.file_menu.add_command(label='Save As...')
         self.file_menu.add_command(label='Exit', command=self.root.destroy)
         self.main_menu.add_cascade(label='File', menu=self.file_menu)
@@ -207,6 +212,8 @@ class GuiWindow:
                                  insertbackground=col['fg'],
                                  highlightcolor=col['acc'], selectbackground=col['acc'])
         self.chat_area.place(x=0, y=0, relwidth=1.0, relheight=0.8)
+        self.chat_area.tag_configure('robot', foreground=ROBOT_TEXT_COLOR)
+        self.chat_area.tag_configure('user', foreground=USER_TEXT_COLOR)
 
         self.message_area = tk.Text(self.root,
                                     bd=1, bg=col['bg'], fg=col['fg'],
@@ -236,12 +243,17 @@ class GuiWindow:
             self.robot_spoke_last = from_robot
             if from_robot:
                 # if self.c.process_stack[-1] == 'talk to gpt':
-                #     header_bit = "\ngpt2:\n"
+                #     header_bit = "\nLogan (gpt):\n"
                 # else:
                 header_bit = "\nLogan:\n"
             else:
                 header_bit = '\n'+USER+':\n'
-        self.chat_area.insert('end', header_bit+string+'\n')
+        if from_robot:
+            tags = 'robot'
+        else:
+            tags = 'user'
+        self.chat_area.insert('end', header_bit+string+'\n', tags)
+        self.chat_area.yview('end')
 
     def unload_responses(self):
         print(self.conversator.response_queue)
