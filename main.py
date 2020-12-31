@@ -8,7 +8,7 @@ from chattingtransformer import ChattingGPT2
 USER = os.getenv('USER')
 CHAT_MODEL = 'gpt2-medium'
 SAMPLING_METHOD = 'top-p-nucleus-sampling'  # 'greedy'  # 'beam-search'  # 'top-k-sampling'
-LENGTH_VARIANCE = 10
+LENGTH_VARIANCE = 16
 PROMPT_REPEAT_CHANCE = 0.10
 GPT_RESCUE_CHANCE = 0.8
 CUSTOM_CHAT_SETTINGS = {
@@ -162,9 +162,13 @@ class Conversator:
             self.basic_ass_bitch_reply('affirmative phrases')
 
     def gpt_response(self, user_input: str) -> str:
+        # base length in words is twice the input length divided by the average length of a word
+        wordlength = 4
+        minl = int(2 * len(user_input) / wordlength - LENGTH_VARIANCE)
+        maxl = int(2 * len(user_input) / wordlength + LENGTH_VARIANCE)
         response = self.gpt2.generate_text(user_input,
-                                           min_length=len(user_input) - LENGTH_VARIANCE,
-                                           max_length=len(user_input) + LENGTH_VARIANCE,
+                                           min_length=minl if minl > 0 else 0,
+                                           max_length=maxl,
                                            custom_settings=CUSTOM_CHAT_SETTINGS)
         # randomly remove prompt (it's sometimes really funny or natural to have the bot repeat & continue)
         if bool(random.random() >= PROMPT_REPEAT_CHANCE):
@@ -173,6 +177,7 @@ class Conversator:
             if slice_start > slice_end:  # check edge case
                 slice_start = slice_end
             response = response[slice_start:slice_end]
+        print('GPT response: ', response)  # debug
         while len(response) > 0 and response[0] == '\n':  # chomp leading newlines
             response = response[1:]
         return response
