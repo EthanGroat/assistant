@@ -8,8 +8,9 @@ from chattingtransformer import ChattingGPT2
 USER = os.getenv('USER')
 CHAT_MODEL = 'gpt2-medium'
 SAMPLING_METHOD = 'top-p-nucleus-sampling'  # 'greedy'  # 'beam-search'  # 'top-k-sampling'
-MIN_LENGTH = 1
-MAX_LENGTH = 80
+LENGTH_VARIANCE = 12
+PROMPT_REPEAT_CHANCE = 0.10
+GPT_RESCUE_CHANCE = 0.8
 CUSTOM_CHAT_SETTINGS = {
   "do_sample": True,
   "early_stopping": True,
@@ -132,7 +133,10 @@ class Conversator:
             if sentence is not None:
                 self.enqueue_response(str(sentence))
         else:
-            self.enqueue_response(self.grab_phrase(key='unknown'))
+            if random.random() < GPT_RESCUE_CHANCE:
+                self.enqueue_response(self.gpt_response(input_string))
+            else:
+                self.enqueue_response(self.grab_phrase(key='unknown'))
 
     def confirm_or_deny(self, user_input: str) -> None:
         if user_input.lower() in map(str.lower, self.phrasebook['affirmative phrases']):
@@ -154,20 +158,23 @@ class Conversator:
         else:
             self.basic_ass_bitch_reply('affirmative phrases')
 
+    def gpt_response(self, user_input: str) -> str:
+        response = self.gpt2.generate_text(user_input,
+                                           min_length=len(user_input) - LENGTH_VARIANCE,
+                                           max_length=len(user_input) + LENGTH_VARIANCE,
+                                           custom_settings=CUSTOM_CHAT_SETTINGS)
+        # randomly remove prompt (it's sometimes really funny or natural to have the bot repeat & continue)
+        if bool(random.random() >= PROMPT_REPEAT_CHANCE):
+            slice_start = len(user_input) + 1
+            slice_end = len(response)
+            if slice_start > slice_end:  # check edge case
+                slice_start = slice_end
+            response = response[slice_start:slice_end]
+        return response
+
     def talk_to_gpt(self, user_input: str) -> None:
         if user_input != 'exit':
-            response = self.gpt2.generate_text(user_input,
-                                               min_length=MIN_LENGTH,
-                                               max_length=MAX_LENGTH,
-                                               custom_settings=CUSTOM_CHAT_SETTINGS)
-            # randomly remove prompt (it's sometimes really funny or natural to have the bot repeat & continue)
-            if bool(random.getrandbits(1)):
-                slice_start = len(user_input) + 1
-                slice_end = len(response)
-                if slice_start > slice_end:  # check edge case
-                    slice_start = slice_end
-                response = response[slice_start:slice_end]
-            self.enqueue_response(response)
+            self.enqueue_response(self.gpt_response(user_input))
         else:
             self.process_stack.pop()
 
@@ -180,7 +187,7 @@ class GuiWindow:
         self.robot_spoke_last = True
 
         self.root = tk.Tk()
-        self.root.title('Assistant')
+        self.root.title('Logan (Personal Assistant)')
         self.icon = tk.PhotoImage(file='res/robot-small.png')
         self.root.iconphoto(True, self.icon)
         self.root.geometry('380x472')
@@ -231,7 +238,7 @@ class GuiWindow:
                 # if self.c.process_stack[-1] == 'talk to gpt':
                 #     header_bit = "\ngpt2:\n"
                 # else:
-                header_bit = "\nassistant:\n"
+                header_bit = "\nLogan:\n"
             else:
                 header_bit = '\n'+USER+':\n'
         self.chat_area.insert('end', header_bit+string+'\n')
