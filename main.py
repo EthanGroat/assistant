@@ -6,21 +6,22 @@ from chattingtransformer import ChattingGPT2
 
 
 USER = os.getenv('USER')
+AI_NAME = 'Logan'
 CHAT_MODEL = 'gpt2-medium'
 SAMPLING_METHOD = 'top-p-nucleus-sampling'  # 'greedy'  # 'beam-search'  # 'top-k-sampling'
 LENGTH_VARIANCE = 16
-PROMPT_REPEAT_CHANCE = 0.10
-GPT_RESCUE_CHANCE = 0.8
+PROMPT_REPEAT_CHANCE = 0.08
+GPT_RESCUE_CHANCE = 0.95
 CUSTOM_CHAT_SETTINGS = {
   "do_sample": True,
   "early_stopping": True,
-  "num_beams": 4,
-  "temperature": 1,
-  "top_k": 40,
-  "top_p": 0.4,
-  "repetition_penalty": 1,
-  "length_penalty": 1,
-  "no_repeat_ngram_size": 2,
+  # "num_beams": 4,
+  "temperature": 0.5,
+  # "top_k": 40,
+  "top_p": 0.8,
+  # "repetition_penalty": 1,
+  # "length_penalty": 1,
+  # "no_repeat_ngram_size": 2,
   'bad_words_ids': None
 }
 col = {
@@ -90,6 +91,7 @@ class Conversator:
         self.gui = GuiWindow()
         self.gui.conversator = self
         self.gui.unload_responses()
+        self.message_history = self.gui.get_message_history()
         self.gui.root.mainloop()
 
     def grab_phrase(self, item=None, key=None, args=None):
@@ -163,9 +165,9 @@ class Conversator:
 
     def gpt_response(self, user_input: str) -> str:
         # base length in words is twice the input length divided by the average length of a word
-        wordlength = 4
-        minl = int(2 * len(user_input) / wordlength - LENGTH_VARIANCE)
-        maxl = int(2 * len(user_input) / wordlength + LENGTH_VARIANCE)
+        avg_token_length = 4
+        minl = int(2 * len(user_input) / avg_token_length - LENGTH_VARIANCE)
+        maxl = int(2 * len(user_input) / avg_token_length + LENGTH_VARIANCE)
         response = self.gpt2.generate_text(user_input,
                                            min_length=minl if minl > 0 else 0,
                                            max_length=maxl,
@@ -197,7 +199,7 @@ class GuiWindow:
         self.robot_spoke_last = True
 
         self.root = tk.Tk()
-        self.root.title('Logan (Personal Assistant)')
+        self.root.title(f'{AI_NAME} (Personal Assistant)')
         self.icon = tk.PhotoImage(file='res/robot-small.png')
         self.root.iconphoto(True, self.icon)
         self.root.geometry('380x472')
@@ -247,10 +249,7 @@ class GuiWindow:
         if from_robot != self.robot_spoke_last:
             self.robot_spoke_last = from_robot
             if from_robot:
-                # if self.c.process_stack[-1] == 'talk to gpt':
-                #     header_bit = "\nLogan (gpt):\n"
-                # else:
-                header_bit = "\nLogan:\n"
+                header_bit = "\n"+AI_NAME+":\n"
             else:
                 header_bit = '\n'+USER+':\n'
         if from_robot:
@@ -259,6 +258,9 @@ class GuiWindow:
             tags = 'user'
         self.chat_area.insert('end', header_bit+string+'\n', tags)
         self.chat_area.yview('end')
+
+    def get_message_history(self):
+        return self.chat_area.get('1.0', 'end')
 
     def unload_responses(self):
         print(self.conversator.response_queue)
