@@ -16,8 +16,8 @@ CUSTOM_CHAT_SETTINGS = {
   "do_sample": True,
   "early_stopping": True,
   # "num_beams": 4,
-  "temperature": 0.5,
-  # "top_k": 40,
+  "temperature": 0.4,
+  # "top_k": 80,
   "top_p": 0.8,
   # "repetition_penalty": 1,
   # "length_penalty": 1,
@@ -70,10 +70,13 @@ class Conversator:
             'assumption of no': ["I'll take that as a no.", 'No? ok cool.', 'Got it.',
                                  "Yeah, why would we need to? Nevermind that I asked."],
             'gpt': lambda: self.subroutine_start('talk to gpt', confirm=True),
+            'get smart': lambda: self.grab_phrase(key='gpt'),
+            'sentence stoppers': ['.', '?', '!', '."', '?"', '!"'],
+            'omitted stoppers': [f"{USER}: ", f"{AI_NAME}: "],
         }
 
         self.process_stack = ['basic']
-        # a queue for the AI's responses allows for multiple chat bubbles to be sent in a row in the GUI:
+        # a queue for the AI's responses allows multiple chat bubbles to be sent in a row in the GUI (future feature):
         self.response_queue = [self.grab_phrase(key='greeting')]
 
         self.subroutines = {
@@ -117,8 +120,7 @@ class Conversator:
         return item
 
     def think(self, input_string: str) -> None:
-        print(self.process_stack)
-        print(self.response_queue)
+        print("[PROCESS STACK] ", self.process_stack)
         current_subroutine = self.process_stack[-1]
         self.subroutines[current_subroutine](input_string)
 
@@ -139,7 +141,7 @@ class Conversator:
                 self.enqueue_response(str(sentence))
         else:
             if random.random() < GPT_RESCUE_CHANCE:
-                self.enqueue_response(self.gpt_response(input_string))
+                self.enqueue_response(self.gpt_learned_response(input_string))
             else:
                 self.enqueue_response(self.grab_phrase(key='unknown'))
 
@@ -163,7 +165,43 @@ class Conversator:
         else:
             self.basic_ass_bitch_reply('affirmative phrases')
 
-    def gpt_response(self, user_input: str) -> str:
+    @staticmethod
+    def sanitize(text: str) -> str:
+        """chomp newlines and spaces on both ends of a response or prompt for display as well as processing"""
+        while len(text) > 0 and (text[0] == '\n' or text[0] == ' '):
+            text = text[1:]
+        while len(text) > 0 and (text[-1] == '\n' or text[-1] == ' '):
+            text = text[:-1]
+        return text
+
+    def sanitize_last_tokens(self, text: str) -> str:
+        partially_sanitized_endchar = len(text)  # artificial stopping point to be used for the return value
+        # exclude all unwanted multiple personalities
+        def exclude_bad_starts() -> int:
+            lst = []
+            for stopper in self.phrasebook['omitted stoppers']:
+                index = text.find(stopper)
+                if index != -1:
+                    lst.append(index)
+            if len(lst) > 0:
+                return min(lst)
+            else:
+                return partially_sanitized_endchar
+        partially_sanitized_endchar = exclude_bad_starts()
+        # next we scan backwards through the text for good stopping points
+        endchar = partially_sanitized_endchar
+        def ends_right() -> bool:
+            for stopper in self.phrasebook['sentence stoppers']:
+                if text.endswith(stopper, 0, endchar):
+                    return True
+            return False
+        while endchar > 0 and not ends_right():
+            endchar -= 1
+        if endchar == 0:  # if no good endings found
+            endchar = partially_sanitized_endchar
+        return text[:endchar]
+
+    def gpt_naive_response(self, user_input: str) -> str:
         # base length in words is twice the input length divided by the average length of a word
         avg_token_length = 4
         minl = int(2 * len(user_input) / avg_token_length - LENGTH_VARIANCE)
@@ -179,14 +217,32 @@ class Conversator:
             if slice_start > slice_end:  # check edge case
                 slice_start = slice_end
             response = response[slice_start:slice_end]
-        print('GPT response: ', response)  # debug
-        while len(response) > 0 and response[0] == '\n':  # chomp leading newlines
-            response = response[1:]
+        print('[GPT response]\n', response)  # debug
+        response = self.sanitize(response)
+        return response
+
+    def gpt_learned_response(self, user_input: str) -> str:
+        avg_token_length = 2.46
+        self.message_history = self.gui.get_message_history()
+        prompt = f"{self.message_history}\n{AI_NAME}:"
+        print(f"[Message History]\n{self.message_history}[END MESSAGE HISTORY]")
+        base_length = int((len(user_input) + len(self.message_history)) / avg_token_length)
+        minl = base_length - LENGTH_VARIANCE
+        maxl = base_length + LENGTH_VARIANCE
+        response = self.gpt2.generate_text(prompt,
+                                           min_length=minl if minl > 0 else 0,
+                                           max_length=maxl,
+                                           custom_settings=CUSTOM_CHAT_SETTINGS)
+        slice_start = len(prompt) + 1
+        response = response[slice_start:]
+        print('[GPT unsanitized response]\n', response, '[END UNSANITIZED RESPONSE]')  # debug
+        response = self.sanitize(response)
+        response = self.sanitize_last_tokens(response)
         return response
 
     def talk_to_gpt(self, user_input: str) -> None:
         if user_input != 'exit':
-            self.enqueue_response(self.gpt_response(user_input))
+            self.enqueue_response(self.gpt_learned_response(user_input))
         else:
             self.process_stack.pop()
 
@@ -239,7 +295,7 @@ class GuiWindow:
 
     def user_send(self):
         message = self.message_area.get('1.0', 'end-1c')  # exclude the last character, which is a line feed
-        print(message)
+        message = self.conversator.sanitize(message)
         self.message_area.delete('1.0', 'end')
         self.output(message, from_robot=False)
         self.conversator.invoke_response(message)
@@ -260,10 +316,10 @@ class GuiWindow:
         self.chat_area.yview('end')
 
     def get_message_history(self):
-        return self.chat_area.get('1.0', 'end')
+        return self.chat_area.get('1.0', 'end-1c')
 
     def unload_responses(self):
-        print(self.conversator.response_queue)
+        print("[RESPONSE QUEUE] ", self.conversator.response_queue)
         while len(self.conversator.response_queue) > 0:
             sentence = self.conversator.dequeue_response()
             if sentence is not None:  # here in case of errors
@@ -271,5 +327,4 @@ class GuiWindow:
 
 
 if __name__ == '__main__':
-    # main_window = GuiWindow()
     main_process = Conversator()
