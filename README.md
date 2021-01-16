@@ -6,8 +6,26 @@ Also has a GPT 2 language model subroutine for more human-like responses on top 
 
 ----------------
 
-### dependencies:
+
+## dependencies:
 
 This app depends on these python modules:
  * tkinter (may also require system packages to work)
+ * nltk
  * chattingtransformer
+
+An internet connection is required when the program is first run in order to download the gpt-2 language model and
+punkt tokenizing library. This will take some time.
+
+
+## computational resource considerations:
+
+The size of the model is configurable in the global variables, and has a huge impact on the amount of processing time
+and RAM used to generate text. Available values are:
+
+|   CHAT_MODEL   |  Parameters  |    Size     |
+|----------------|--------------|-------------|
+| 'gpt2'         |    134 M     |   548  MB   |
+| 'gpt2-medium'  |    335 M     |   1.52 GB   |
+| 'gpt2-large'   |    774 M     |   3.25 GB   |
+| 'gpt2-xl'      |    1.5 B     |   6.43 GB   |
