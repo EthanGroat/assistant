@@ -2,6 +2,7 @@ import os
 import tkinter as tk
 import time
 import random
+from nltk import word_tokenize
 from chattingtransformer import ChattingGPT2
 
 
@@ -207,11 +208,11 @@ class Conversator:
         return text[:endchar]
 
     def gpt_normal_response(self, user_input: str) -> str:
-        avg_token_length = 2.46
+        # avg_token_length = 2.46
         self.message_history = self.gui.get_message_history()
         prompt = f"{self.message_history}\n{AI_NAME}:"
         print(f"[Message History]\n{self.message_history}[END MESSAGE HISTORY]")
-        base_length = int((len(user_input) + len(self.message_history)) / avg_token_length)
+        base_length = len(word_tokenize(self.message_history)) + 2 * len(word_tokenize(user_input))
         minl = base_length - LENGTH_VARIANCE
         maxl = base_length + LENGTH_VARIANCE
         response = self.gpt2.generate_text(prompt,
