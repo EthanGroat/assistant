@@ -9,7 +9,7 @@ USER = os.getenv('USER')
 AI_NAME = 'Logan'
 CHAT_MODEL = 'gpt2-medium'
 SAMPLING_METHOD = 'top-p-nucleus-sampling'  # 'greedy'  # 'beam-search'  # 'top-k-sampling'
-LENGTH_VARIANCE = 32
+LENGTH_VARIANCE = 24
 PROMPT_REPEAT_CHANCE = 0.08
 GPT_RESCUE_CHANCE = 0.95
 CUSTOM_CHAT_SETTINGS = {
@@ -77,7 +77,7 @@ class Conversator:
 
         self.process_stack = ['basic']
         # a queue for the AI's responses allows multiple chat bubbles to be sent in a row in the GUI (future feature):
-        self.response_queue = [self.grab_phrase(key='greeting')]
+        self.response_queue = []
 
         self.subroutines = {
             'basic': self.basic_ass_bitch_reply,
@@ -93,6 +93,7 @@ class Conversator:
         # set up GUI
         self.gui = GuiWindow()
         self.gui.conversator = self
+        self.enqueue_response(self.grab_phrase(key='greeting'))
         self.gui.unload_responses()
         self.message_history = self.gui.get_message_history()
         self.gui.root.mainloop()
@@ -141,7 +142,7 @@ class Conversator:
                 self.enqueue_response(str(sentence))
         else:
             if random.random() < GPT_RESCUE_CHANCE:
-                self.enqueue_response(self.gpt_learned_response(input_string))
+                self.enqueue_response(self.gpt_normal_response(input_string))
             else:
                 self.enqueue_response(self.grab_phrase(key='unknown'))
 
@@ -201,27 +202,7 @@ class Conversator:
             endchar = partially_sanitized_endchar
         return text[:endchar]
 
-    def gpt_naive_response(self, user_input: str) -> str:
-        # base length in words is twice the input length divided by the average length of a word
-        avg_token_length = 4
-        minl = int(2 * len(user_input) / avg_token_length - LENGTH_VARIANCE)
-        maxl = int(2 * len(user_input) / avg_token_length + LENGTH_VARIANCE)
-        response = self.gpt2.generate_text(user_input,
-                                           min_length=minl if minl > 0 else 0,
-                                           max_length=maxl,
-                                           custom_settings=CUSTOM_CHAT_SETTINGS)
-        # randomly remove prompt (it's sometimes really funny or natural to have the bot repeat & continue)
-        if bool(random.random() >= PROMPT_REPEAT_CHANCE):
-            slice_start = len(user_input) + 1
-            slice_end = len(response)
-            if slice_start > slice_end:  # check edge case
-                slice_start = slice_end
-            response = response[slice_start:slice_end]
-        print('[GPT response]\n', response)  # debug
-        response = self.sanitize(response)
-        return response
-
-    def gpt_learned_response(self, user_input: str) -> str:
+    def gpt_normal_response(self, user_input: str) -> str:
         avg_token_length = 2.46
         self.message_history = self.gui.get_message_history()
         prompt = f"{self.message_history}\n{AI_NAME}:"
@@ -242,7 +223,7 @@ class Conversator:
 
     def talk_to_gpt(self, user_input: str) -> None:
         if user_input != 'exit':
-            self.enqueue_response(self.gpt_learned_response(user_input))
+            self.enqueue_response(self.gpt_normal_response(user_input))
         else:
             self.process_stack.pop()
 
@@ -252,7 +233,7 @@ class GuiWindow:
         # GUIWindow is meant to be a component of a Conversator, with a reference back to it.
         self.conversator = None
 
-        self.robot_spoke_last = True
+        self.robot_spoke_last = False
 
         self.root = tk.Tk()
         self.root.title(f'{AI_NAME} (Personal Assistant)')
