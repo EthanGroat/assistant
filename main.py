@@ -55,7 +55,7 @@ class Conversator:
             'confirmation': ["Are you sure?", "Are you certain?"],
             'date': [lambda: date_string()],
             'time': [lambda: time_string()],
-            'what time is it?': lambda: self.grab_phrase(key='time'),
+            'What time is it?': lambda: self.grab_phrase(key='time'),
             'filler': ['I see.', 'Um...', 'Hmm.', 'Well...'],
             'unknown': ["I don't know.", "You've got me stumped.", 'Curiously, I do not have an answer for that.',
                         'Dropped my brain. Honestly I have no clue.', lambda: ask_creator(),
