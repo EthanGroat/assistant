@@ -2,6 +2,8 @@ import os
 import tkinter as tk
 import time
 import random
+import asyncio
+import threading
 import nltk
 from chattingtransformer import ChattingGPT2
 
@@ -139,6 +141,9 @@ class Conversator:
         self.think(user_input)  # read and evaluate
         self.gui.unload_responses()  # print
 
+    def threaded_invoke(self, user_input: str):
+        threading.Thread(target=self.invoke_response, args=(user_input,)).start()
+
     def enqueue_response(self, response: str) -> None:
         self.response_queue.append(response)
 
@@ -267,7 +272,7 @@ class GuiWindow:
         self.file_menu = tk.Menu(self.root)
         # self.file_menu.add_command(label='New...')
         self.file_menu.add_command(label='Save As...')
-        self.file_menu.add_command(label='Exit', command=self.root.destroy)
+        self.file_menu.add_command(label='Exit', command=self.safe_exit)
         self.main_menu.add_cascade(label='File', menu=self.file_menu)
         self.main_menu.add_command(label='Edit')
         self.root.config(menu=self.main_menu)
@@ -294,13 +299,19 @@ class GuiWindow:
         self.preconfigured_button = tk.Button(self.root, text='Preconfigs', font=('Consolas', 8),
                                               bg=col['mg'], fg=col['fg'], activebackground=col['acc'])
         self.preconfigured_button.place(anchor='ne', relx=1.0, rely=0.9, relwidth=0.25, relheight=0.1)
+        self.status = 'GOOD'
+
+    def safe_exit(self):
+        self.status = 'EXIT'
+        time.sleep(2.5)
+        self.root.destroy()
 
     def user_send(self):
         message = self.message_area.get('1.0', 'end-1c')  # exclude the last character, which is a line feed
         message = self.conversator.sanitize(message)
         self.message_area.delete('1.0', 'end')
         self.output(message, from_robot=False)
-        self.conversator.invoke_response(message)
+        self.conversator.threaded_invoke(message)
 
     def output(self, string: str, from_robot: bool = True):
         header_bit = ''
@@ -323,9 +334,9 @@ class GuiWindow:
     def unload_responses(self):
         print("[RESPONSE QUEUE] ", self.conversator.response_queue)
         while len(self.conversator.response_queue) > 0:
-            sentence = self.conversator.dequeue_response()
-            if sentence is not None:  # here in case of errors
-                self.output(sentence, from_robot=True)
+            message = self.conversator.dequeue_response()
+            if message is not None:  # here in case of errors
+                self.output(message, from_robot=True)
 
 
 if __name__ == '__main__':
