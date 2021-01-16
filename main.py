@@ -211,12 +211,12 @@ class Conversator:
         return text[:endchar]
 
     def gpt_normal_response(self, user_input: str) -> str:
-        token_discrepancy = 1.25
+        token_discrepancy = 1.1
         self.message_history = self.gui.get_message_history()
         prompt = f"{self.message_history}\n{AI_NAME}:"
         print(f"[Message History]\n{self.message_history}[END MESSAGE HISTORY]")
-        prompt_length = len(nltk.word_tokenize(prompt))
-        input_length = len(nltk.word_tokenize(user_input))
+        prompt_length = len(nltk.word_tokenize(prompt)) + prompt.count('\n')  # newlines not counted in nltk
+        input_length = len(nltk.word_tokenize(user_input)) + user_input.count('\n')
         base_length = int((prompt_length + input_length) * token_discrepancy)
         minl = base_length
         maxl = base_length + LENGTH_VARIANCE
