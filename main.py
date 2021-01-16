@@ -54,6 +54,7 @@ class Conversator:
             'confirmation': ["Are you sure?", "Are you certain?"],
             'date': [lambda: date_string()],
             'time': [lambda: time_string()],
+            'what time is it?': lambda: self.grab_phrase(key='time'),
             'filler': ['I see.', 'Um...', 'Hmm.', 'Well...'],
             'unknown': ["I don't know.", "You've got me stumped.", 'Curiously, I do not have an answer for that.',
                         'Dropped my brain. Honestly I have no clue.', lambda: ask_creator(),
@@ -65,6 +66,9 @@ class Conversator:
                         "I'm a newbie here, but I'd like to help"],
             'what': ["I am a personal assistant and AI chat program, created by Ethan to do your bidding. "
                      "I am a work in progress. :D"],
+            ':D': [':D', ':D!', lambda: self.grab_phrase(key=':D!')],
+            ':D!': [':D!', ':D!!', lambda: self.grab_phrase(key=':D!!')],
+            ':D!!': [':D!!', ':D!!!'],
             'affirmative phrases': ['Yes', 'Yeah', 'Ok', 'Alright', 'Y', 'Definitely', "Let's do it!", 'Alright then!',
                                     'Awesome', 'Awesome!', 'Cool!', 'Awesome.', 'Sure'],
             'assumption of no': ["I'll take that as a no.", 'No? ok cool.', 'Got it.',
@@ -104,7 +108,7 @@ class Conversator:
         if key is not None:
             first_key = key_list = key
             if isinstance(key_list, list):
-                first_key = key_list.pop(0)  # delete first key from key list and assign it to first_key
+                first_key = key_list.pop(0)
                 if len(key_list) == 0:
                     key_list = None
             else:
@@ -136,8 +140,8 @@ class Conversator:
         return self.response_queue.pop(0)
 
     def basic_ass_bitch_reply(self, input_string: str) -> None:
-        if input_string.lower() in self.phrasebook.keys():
-            sentence = self.grab_phrase(key=input_string.lower())
+        if input_string in self.phrasebook.keys():
+            sentence = self.grab_phrase(key=input_string)
             if sentence is not None:
                 self.enqueue_response(str(sentence))
         else:
