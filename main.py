@@ -148,6 +148,7 @@ class Conversator:
 
     def output_to_history(self, message: str, who: str):
         if self.wholast != who:
+            self.wholast = who
             self.message_history += f"\n\n{who}:\n{message}"
         else:
             self.message_history += f"\n{message}"
