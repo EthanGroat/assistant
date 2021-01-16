@@ -13,7 +13,7 @@ USER = os.getenv('USER')
 AI_NAME = 'Logan'
 CHAT_MODEL = 'gpt2-medium'
 SAMPLING_METHOD = 'top-p-nucleus-sampling'  # 'greedy'  # 'beam-search'  # 'top-k-sampling'
-LENGTH_VARIANCE = 24
+LENGTH_VARIANCE = 20
 PROMPT_REPEAT_CHANCE = 0.08
 GPT_RESCUE_CHANCE = 0.95
 CUSTOM_CHAT_SETTINGS = {
@@ -79,13 +79,15 @@ class Conversator:
                                  "Yeah, why would we need to? Nevermind that I asked."],
             'gpt': lambda: self.subroutine_start('talk to gpt', confirm=True),
             'get smart': lambda: self.grab_phrase(key='gpt'),
-            'sentence stoppers': ['.', '?', '!', '."', '?"', '!"'],
+            'sentence stoppers': ['.', '?', '!', '."', '?"', '!"', '.)', '?)', '!)'],
             'omitted stoppers': [f"{USER}: ", f"{AI_NAME}: "],
         }
 
         self.process_stack = ['basic']
         # a queue for the AI's responses allows multiple chat bubbles to be sent in a row in the GUI (future feature):
         self.response_queue = []
+        self.message_history = ''
+        self.wholast = None
 
         self.subroutines = {
             'basic': self.basic_ass_bitch_reply,
@@ -103,7 +105,6 @@ class Conversator:
         self.gui.conversator = self
         self.enqueue_response(self.grab_phrase(key='greeting'))
         self.gui.unload_responses()
-        self.message_history = self.gui.get_message_history()
         self.gui.root.mainloop()
 
     def grab_phrase(self, item=None, key=None, args=None):
@@ -134,6 +135,7 @@ class Conversator:
         self.subroutines[current_subroutine](input_string)
 
     def invoke_response(self, user_input: str) -> None:
+        self.output_to_history(user_input, USER)
         self.think(user_input)  # read and evaluate
         self.gui.unload_responses()  # print
 
@@ -141,7 +143,14 @@ class Conversator:
         self.response_queue.append(response)
 
     def dequeue_response(self) -> str:
+        self.output_to_history(self.response_queue[0], AI_NAME)
         return self.response_queue.pop(0)
+
+    def output_to_history(self, message: str, who: str):
+        if self.wholast != who:
+            self.message_history += f"\n\n{who}:\n{message}"
+        else:
+            self.message_history += f"\n{message}"
 
     def basic_ass_bitch_reply(self, input_string: str) -> None:
         if input_string in self.phrasebook.keys():
