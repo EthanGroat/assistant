@@ -2,7 +2,6 @@ import os
 import tkinter as tk
 import time
 import random
-import asyncio
 import threading
 import nltk
 from chattingtransformer import ChattingGPT2
