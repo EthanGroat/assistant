@@ -302,7 +302,6 @@ class GuiWindow:
 
     def safe_exit(self):
         self.status = 'EXIT'
-        time.sleep(2.5)
         self.root.destroy()
 
     def user_send(self):
