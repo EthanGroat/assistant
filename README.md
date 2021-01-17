@@ -17,6 +17,29 @@ This app depends on these python modules:
 An internet connection is required when the program is first run in order to download the gpt-2 language model and
 punkt tokenizing library. This will take some time.
 
+## installation instructions
+
+### how to install dependencies on Debian-based Linux
+
+assuming you have python3 and pip3 installed and working:
+```bash
+sudo apt install python3-tk
+python3 -m pip install chattingtransformer nltk
+```
+
+### how to install dependencies on Arch-based Linux
+
+assuming you have python and pip installed and up to date:
+```bash
+python -m pip install chattingtransformer nltk tkinter
+```
+
+### Running the assistant
+
+```bash
+cd assistant  # or wherever the project directory is
+python main.py  # or python3 main.py
+```
 
 ## computational resource considerations:
 
