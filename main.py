@@ -13,6 +13,7 @@ nltk.download('punkt')
 USER = os.getenv('USER')
 AI_NAME = 'Logan'
 CHAT_MODEL = 'gpt2-medium'
+MAX_GPT_PROMPT_CHARS = 1000
 SAMPLING_METHOD = 'top-p-nucleus-sampling'  # 'greedy'  # 'beam-search'  # 'top-k-sampling'
 LENGTH_VARIANCE = 20
 PROMPT_REPEAT_CHANCE = 0.08
@@ -227,7 +228,9 @@ class Conversator:
     def gpt_normal_response(self, user_input: str) -> str:
         token_discrepancy = 1.1
         prompt = f"{self.message_history}\n\n{AI_NAME}:"
-        print(f"[History/prompt]\n{self.message_history}[end prompt]")
+        if len(prompt) > MAX_GPT_PROMPT_CHARS:
+            prompt = prompt[-MAX_GPT_PROMPT_CHARS:]  # GPT can only accept a certain number of tokens, so limit prompt
+        print(f"[History/prompt]\n{prompt}[end prompt]")
         prompt_length = len(nltk.word_tokenize(prompt)) + prompt.count('\n')  # newlines not counted in nltk
         input_length = len(nltk.word_tokenize(user_input)) + user_input.count('\n')
         base_length = int((prompt_length + input_length) * token_discrepancy)
