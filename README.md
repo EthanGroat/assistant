@@ -27,7 +27,7 @@ sudo apt install python3-tk
 python3 -m pip install chattingtransformer nltk
 ```
 
-### how to install dependencies on Arch-based Linux
+### how to install dependencies on other POSIX systems
 
 assuming you have python and pip installed and up to date:
 ```bash

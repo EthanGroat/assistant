@@ -1,2 +1,5 @@
 /venv/
 .idea/
+/funny_scripts/
+/__pycache__/
+TkInterColorCharts.png
